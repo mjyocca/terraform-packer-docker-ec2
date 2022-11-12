@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Add credential helper to pull from ECR
+mkdir -p ~/.docker && chmod 0700 ~/.docker
+echo '{"credsStore": "ecr-login"}' > ~/.docker/config.json
+
+# Start docker now and enable auto start on boot
+service docker start && chkconfig docker on
+
+# Allow the ec2-user to run docker commands without sudo
+usermod -a -G docker ec2-user
+
+# Run application at start
+docker run --restart=always -d -p ${PORT_1}:${PORT_2} ${id}.dkr.ecr.${region}.amazonaws.com/${repo}:latest
