@@ -13,6 +13,6 @@ app.get('/', (req, res) => {
   res.send(`Hello World, version: ${VERSION}`);
 });
 
-app.listen(PORT, HOST, () => {
+app.listen(PORT, () => {
   console.log(`Running on http://${HOST}:${PORT}`);
 });

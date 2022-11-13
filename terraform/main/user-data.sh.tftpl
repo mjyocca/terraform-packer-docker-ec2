@@ -5,10 +5,10 @@ mkdir -p ~/.docker && chmod 0700 ~/.docker
 echo '{"credsStore": "ecr-login"}' > ~/.docker/config.json
 
 # Start docker now and enable auto start on boot
-service docker start && chkconfig docker on
+sudo systemctl start docker
+sudo systemctl enable docker
 
-# Allow the ec2-user to run docker commands without sudo
-usermod -a -G docker ec2-user
+sudo docker pull ${id}.dkr.ecr.${region}.amazonaws.com/${repo}:latest
 
 # Run application at start
-docker run --restart=always -d -p ${PORT_1}:${PORT_2} ${id}.dkr.ecr.${region}.amazonaws.com/${repo}:latest
+sudo docker run --restart=always -d -p ${PORT_1}:${PORT_2} ${id}.dkr.ecr.${region}.amazonaws.com/${repo}:latest

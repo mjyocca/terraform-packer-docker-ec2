@@ -1,5 +1,5 @@
 variable "region" {
-  type = "string"
+  type    = string
   default = "us-east-1"
 }
 
@@ -11,7 +11,7 @@ source "amazon-ebs" "example" {
   region        = var.region
   source_ami_filter {
     filters = {
-      name                = "ubuntu/images/*ubuntu-xenial-16.04-amd64-server-*"
+      name                = "ubuntu/images/*ubuntu-focal-20.04-amd64-server-*"
       root-device-type    = "ebs"
       virtualization-type = "hvm"
     }
