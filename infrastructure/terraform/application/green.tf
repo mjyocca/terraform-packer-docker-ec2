@@ -1,5 +1,5 @@
-resource "aws_instance" "blue" {
-  count = var.enable_blue_env ? var.blue_instance_count : 0
+resource "aws_instance" "green" {
+  count = var.enable_green_env ? var.green_instance_count : 0
   ami                    = data.aws_ami.image.id
   instance_type          = "t2.micro"
   iam_instance_profile   = aws_iam_instance_profile.profile.name
@@ -12,16 +12,16 @@ resource "aws_instance" "blue" {
     id = data.aws_caller_identity.current.account_id
     repo = "terraform-packer-docker-project"
     version = var.application_version
-    deployment = "blue"
+    deployment = "green"
   })
 
   tags = {
-    Name = "version-${var.application_version}-${count.index} (blue)"
+    Name = "version-${var.application_version}-${count.index} (green)"
   }
 }
 
-resource "aws_lb_target_group" "blue_target_group" {
-  name     = "blue-tg-${random_pet.app.id}-lb"
+resource "aws_lb_target_group" "green_target_group" {
+  name     = "green-tg-${random_pet.app.id}-lb"
   port     = 80
   protocol = "HTTP"
   vpc_id   = module.vpc.vpc_id
@@ -34,9 +34,9 @@ resource "aws_lb_target_group" "blue_target_group" {
   }
 }
 
-resource "aws_lb_target_group_attachment" "blue_tg_attachment" {
-  count            = length(aws_instance.blue)
-  target_group_arn = aws_lb_target_group.blue_target_group.arn
-  target_id        = aws_instance.blue[count.index].id
+resource "aws_lb_target_group_attachment" "green_tg_attachment" {
+  count            = length(aws_instance.green)
+  target_group_arn = aws_lb_target_group.green_target_group.arn
+  target_id        = aws_instance.green[count.index].id
   port             = 80
 }

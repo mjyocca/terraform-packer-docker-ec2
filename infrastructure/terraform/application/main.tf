@@ -84,6 +84,21 @@ resource "aws_lb_listener" "app" {
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.target_group.arn
+    forward {
+      target_group {
+        arn    = aws_lb_target_group.blue_target_group.arn
+        weight = lookup(local.traffic_dist_map[var.traffic_distribution], "blue", 100)
+      }
+
+      target_group {
+        arn    = aws_lb_target_group.green_target_group.arn
+        weight = lookup(local.traffic_dist_map[var.traffic_distribution], "green", 0)
+      }
+
+      stickiness {
+        enabled  = false
+        duration = 1
+      }
+    }
   }
 }
