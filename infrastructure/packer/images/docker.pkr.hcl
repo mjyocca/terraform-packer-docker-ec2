@@ -40,7 +40,7 @@ build {
   ]
 
   provisioner "file" {
-    source = "../../app/"
+    source = "../../../app/"
     destination = "/usr/src/app"
   }
 
