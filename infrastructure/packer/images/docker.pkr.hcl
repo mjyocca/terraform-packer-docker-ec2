@@ -1,3 +1,5 @@
+## packer build -var-file="./variables.auto.pkrvars.hcl" docker.pkr.hcl
+
 variable "aws_account_id" {
   type = string
   default = ""

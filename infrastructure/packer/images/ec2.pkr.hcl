@@ -1,3 +1,5 @@
+## packer build -var-file="./variables.auto.pkrvars.hcl" ec2.pkr.hcl
+
 variable "region" {
   type    = string
   default = "us-east-1"
