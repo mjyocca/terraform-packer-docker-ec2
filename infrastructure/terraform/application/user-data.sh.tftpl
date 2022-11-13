@@ -13,5 +13,6 @@ sudo docker pull ${id}.dkr.ecr.${region}.amazonaws.com/${repo}:latest
 # Run application at start
 sudo docker run --restart=always -d \
 -e VERSION=${version} \
+-e DEPLOYMENT=${deployment} \
 -p ${PORT_1}:${PORT_2} \
 ${id}.dkr.ecr.${region}.amazonaws.com/${repo}:latest

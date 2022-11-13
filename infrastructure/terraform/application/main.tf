@@ -19,6 +19,18 @@ data "aws_availability_zones" "available" {
   state = "available"
 }
 
+data "aws_caller_identity" "current" {}
+
+# packer built AMI
+data "aws_ami" "image" {
+  most_recent = true
+  owners = ["self"]
+  filter {                            
+    name   = "name"
+    values = ["terraform-packer-docker-*"]
+  }                              
+}
+
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "2.64.0"

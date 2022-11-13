@@ -1,15 +1,4 @@
-data "aws_caller_identity" "current" {}
-
-data "aws_ami" "image" {
-  most_recent = true
-  owners = ["self"]
-  filter {                            
-    name   = "name"
-    values = ["terraform-packer-docker-*"]
-  }                              
-}
-
-resource "aws_instance" "ec2" {
+resource "aws_instance" "blue" {
   count = 1
   ami                    = data.aws_ami.image.id
   instance_type          = "t2.micro"
@@ -23,15 +12,16 @@ resource "aws_instance" "ec2" {
     id = data.aws_caller_identity.current.account_id
     repo = "terraform-packer-docker-project"
     version = var.application_version
+    deployment = "blue"
   })
 
   tags = {
-    Name = "version-1.0-${count.index}"
+    Name = "version-${var.application_version}-${count.index} (blue)"
   }
 }
 
-resource "aws_lb_target_group" "target_group" {
-  name     = "tg-${random_pet.app.id}-lb"
+resource "aws_lb_target_group" "blue_target_group" {
+  name     = "blue-tg-${random_pet.app.id}-lb"
   port     = 80
   protocol = "HTTP"
   vpc_id   = module.vpc.vpc_id
@@ -44,9 +34,9 @@ resource "aws_lb_target_group" "target_group" {
   }
 }
 
-resource "aws_lb_target_group_attachment" "tg_attachment" {
-  count            = length(aws_instance.ec2)
-  target_group_arn = aws_lb_target_group.target_group.arn
-  target_id        = aws_instance.ec2[count.index].id
+resource "aws_lb_target_group_attachment" "blue_tg_attachment" {
+  count            = length(aws_instance.blue)
+  target_group_arn = aws_lb_target_group.blue_target_group.arn
+  target_id        = aws_instance.blue[count.index].id
   port             = 80
 }
