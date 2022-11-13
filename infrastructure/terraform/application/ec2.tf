@@ -22,6 +22,7 @@ resource "aws_instance" "ec2" {
     PORT_2 = 8080
     id = data.aws_caller_identity.current.account_id
     repo = "terraform-packer-docker-project"
+    version = var.application_version
   })
 
   tags = {

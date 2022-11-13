@@ -11,4 +11,7 @@ sudo systemctl enable docker
 sudo docker pull ${id}.dkr.ecr.${region}.amazonaws.com/${repo}:latest
 
 # Run application at start
-sudo docker run --restart=always -d -p ${PORT_1}:${PORT_2} ${id}.dkr.ecr.${region}.amazonaws.com/${repo}:latest
+sudo docker run --restart=always -d \
+-e VERSION=${version} \
+-p ${PORT_1}:${PORT_2} \
+${id}.dkr.ecr.${region}.amazonaws.com/${repo}:latest
