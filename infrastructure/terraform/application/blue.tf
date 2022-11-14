@@ -13,6 +13,7 @@ resource "aws_instance" "blue" {
     repo = "terraform-packer-docker-project"
     version = var.application_version
     deployment = "blue"
+    count = count.index
   })
 
   tags = {
