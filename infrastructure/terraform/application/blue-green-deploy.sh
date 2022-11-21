@@ -1,6 +1,6 @@
 #!/bin/bash
-CURRENT_STACK=green
-NEW_STACK=blue
+CURRENT_STACK=$1
+NEW_STACK=$2
 
 # Provision both blue/green stacks
 terraform apply \
