@@ -1,0 +1,59 @@
+name: Terraform & Packer Green/Blue Deployment
+
+on: 
+  push:
+    branches:
+      - main
+  
+jobs:
+  # 
+  job-filter:
+    runs-on: ubuntu-latest
+    outputs:
+      shared: ${{ steps.filter.outputs.shared }}
+      application: ${{ steps.filter.outputs.application }}
+      packerAmi: ${{ steps.filter.outputs.packerAmi }}
+      packerDocker: ${{ steps.filter.outputs.packerDocker }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          filters: |
+            shared:
+              - 'infrastructure/terraform/shared/**'
+            packerAmi:
+              - 'infrastructure/packer/images/ec2.pkr.hcl'
+            application:
+              - 'app/**'
+              - 'infrastructure/terraform/application/**'
+              - 'infrastructure/packer/images/docker.pkr.hcl'
+
+  #
+  deploy-shared-infra:
+    runs-on: ubuntu-latest
+    needs: job-filter
+    if: needs.job-filter.outputs.shared == 'true'
+    steps:
+      - uses: actions/checkout@v2
+      - run: echo "deploy-shared-infra"
+
+  # 
+  packer-build-ami:
+    runs-on: ubuntu-latest
+    needs: job-filter
+    if: needs.job-filter.outputs.packerAmi == 'true'
+    steps:
+      - uses: actions/checkout@v2
+      - run: echo "packer-build-ami"
+
+  #
+  deploy-application:
+    runs-on: ubuntu-latest
+    needs: ['job-filter', 'deploy-shared-infra', 'packer-build-ami']
+    if: needs.job-filter.outputs.application == 'true'
+    steps:
+      - uses: actions/checkout@v2
+      - run: echo "deploy-application"
+
+  
