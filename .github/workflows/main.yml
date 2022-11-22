@@ -3,7 +3,7 @@ name: Terraform & Packer Green/Blue Deployment
 on: 
   push:
     branches:
-      - main
+      - actions-test
   
 jobs:
   # 
