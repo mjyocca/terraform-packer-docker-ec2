@@ -3,19 +3,26 @@ name: Terraform & Packer Green/Blue Deployment
 on: 
   push:
     branches:
-      - actions-test
+      - main
   
+env:
+  TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
+  AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+  ECR_REPOSITORY: "terraform-packer-docker-project"
+  REGION: "us-east-1"
+
 jobs:
-  # 
-  job-filter:
+  # JOB to run change detection
+  changes:
     runs-on: ubuntu-latest
     outputs:
       shared: ${{ steps.filter.outputs.shared }}
-      application: ${{ steps.filter.outputs.application }}
       packerAmi: ${{ steps.filter.outputs.packerAmi }}
-      packerDocker: ${{ steps.filter.outputs.packerDocker }}
+      application: ${{ steps.filter.outputs.application }}
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v3
+
       - uses: dorny/paths-filter@v2
         id: filter
         with:
@@ -26,34 +33,187 @@ jobs:
               - 'infrastructure/packer/images/ec2.pkr.hcl'
             application:
               - 'app/**'
-              - 'infrastructure/terraform/application/**'
               - 'infrastructure/packer/images/docker.pkr.hcl'
+              - 'infrastructure/terraform/application/**'
 
-  #
+
+  # Deploy terraform shared configuration
   deploy-shared-infra:
     runs-on: ubuntu-latest
-    needs: job-filter
-    if: needs.job-filter.outputs.shared == 'true'
+    defaults:
+      run:
+        working-directory: ./infrastructure/terraform/shared
+    needs: changes
+    if: needs.changes.outputs.shared == 'true'
     steps:
-      - uses: actions/checkout@v2
-      - run: echo "deploy-shared-infra"
+      - name: Checkout
+        uses: actions/checkout@v3
 
-  # 
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+        with:
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Terraform Init
+        id: init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -input=false
+
+
+  # Build and push EC2 AMI with docker installed
   packer-build-ami:
     runs-on: ubuntu-latest
-    needs: job-filter
-    if: needs.job-filter.outputs.packerAmi == 'true'
+    defaults:
+      run:
+        working-directory: ./infrastructure/packer/images
+    needs: changes
+    if: needs.changes.outputs.packerAmi == 'true'
     steps:
-      - uses: actions/checkout@v2
-      - run: echo "packer-build-ami"
+      - name: Checkout
+        uses: actions/checkout@v3
 
-  #
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.REGION }}
+
+      - name: Packer Init
+        run: packer init ec2.pkr.hcl
+
+      - name: Packer Build
+        run: |
+          packer build -var="region=$REGION" ec2.pkr.hcl
+
+
+  # Build and push Docker image to ECR, Green/Blue Terraform Deploy
   deploy-application:
     runs-on: ubuntu-latest
-    needs: ['job-filter', 'deploy-shared-infra', 'packer-build-ami']
-    if: needs.job-filter.outputs.application == 'true'
+    defaults:
+      run:
+        working-directory: ./infrastructure/terraform/application
+    needs: [changes, deploy-shared-infra, packer-build-ami]
+    # Test condition to trigger job even if any needs jobs were skipped & application files were changed
+    # Arguably should if either needs jobs runs
+    if: |
+      always() &&
+      (needs.changes.result == 'success' || needs.changes.result == 'skipped') &&
+      (needs.deploy-shared-infra.result == 'success' || needs.deploy-shared-infra.result == 'skipped') &&
+      (needs.packer-build-ami.result == 'success' || needs.packer-build-ami.result  == 'skipped')
+    # && (needs.changes.outputs.application == 'true')
     steps:
-      - uses: actions/checkout@v2
-      - run: echo "deploy-application"
+      - name: Checkout
+        uses: actions/checkout@v3
 
-  
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.REGION }}
+
+      ## Packer
+      - name: Packer Init
+        run: packer init docker.pkr.hcl
+        working-directory: ./infrastructure/packer/images
+
+      - name: Packer Build & Push to ECR
+        run: |
+          packer build \
+          -var="aws_account_id=$AWS_ACCOUNT_ID" \
+          -var="ecr_repository=$ECR_REPOSITORY" \
+          -var="region=$REGION" \
+          docker.pkr.hcl
+        working-directory: ./infrastructure/packer/images
+
+      ## Terraform ##
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          cli_config_credentials_token: ${{ secrets.TF_API_TOKEN }}
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Previous Terraform Output
+        id: tfo
+        run: |
+          TF_OUTPUT="$(terraform output -json traffic_distribution | jq -r . || echo '')"
+          echo "TF_OUTPUT=${TF_OUTPUT}" >> $GITHUB_OUTPUT
+          echo "TF_OUTPUT=${TF_OUTPUT}" >> $GITHUB_ENV
+          echo "PREVIOUS_STACK=${TF_OUTPUT:=blue}" >> $GITHUB_ENV
+
+      - name: Blue / Green Variables
+        run: |
+          [[ "$PREVIOUS_STACK" == "blue" ]] && echo "CURRENT_STACK="green"" >> $GITHUB_ENV || echo "CURRENT_STACK="blue"" >> $GITHUB_ENV
+
+      - name: Debug ENV
+        run: |
+          echo $TF_OUTPUT
+          echo $PREVIOUS_STACK
+          echo $CURRENT_STACK
+
+      - name: First Deployment
+        if: ${{ steps.tfo.outputs.TF_OUTPUT == 0 }}
+        run: |
+          terraform apply \
+          -var "traffic_distribution=blue" \
+          -var "enable_green_env=false" \
+          --auto-approve -input=false
+
+      - name: Provision Both Stacks
+        if: ${{ steps.tfo.outputs.TF_OUTPUT }}
+        run: |
+          terraform apply \
+          -var "traffic_distribution=$PREVIOUS_STACK" \
+          --auto-approve -input=false
+
+      - name: Sleep for 60 seconds
+        run: sleep 60s
+        shell: bash
+
+      - name: Distribute Split Traffic
+        if: ${{ steps.tfo.outputs.TF_OUTPUT }}
+        run: |
+          terraform apply \
+          -var "traffic_distribution=split" \
+          --auto-approve -input=false
+
+      - name: Sleep for 30 seconds
+        run: sleep 30s
+        shell: bash
+      
+      ## TO-DO: check all status codes for each curl
+      - name: Health Check
+        if: ${{ steps.tfo.outputs.TF_OUTPUT }}
+        run: |
+          for i in `seq 1 10`; do curl $(terraform output -raw lb_dns_name); done
+
+      - name: Promote Current Stack to Prod
+        if: ${{ steps.tfo.outputs.TF_OUTPUT }}
+        run: |
+          terraform apply \
+          -var "traffic_distribution=$CURRENT_STACK" \
+          --auto-approve -input=false
+
+      - name: Sleep for 30 seconds
+        run: sleep 30s
+        shell: bash
+
+      ## TO-DO: check all status codes for each curl
+      - name: Health Check
+        if: ${{ steps.tfo.outputs.TF_OUTPUT }}
+        run: |
+          for i in `seq 1 10`; do curl $(terraform output -raw lb_dns_name); done
+
+      - name: Destroy Previous Stack
+        if: ${{ steps.tfo.outputs.TF_OUTPUT }}
+        run: |
+          terraform apply \
+          -var "traffic_distribution=$CURRENT_STACK" \
+          -var "enable_${PREVIOUS_STACK}_env=false" \
+          --auto-approve -input=false
