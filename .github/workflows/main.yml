@@ -1,9 +1,16 @@
 name: Terraform & Packer Green/Blue Deployment
 
-on: 
+on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      run_all:
+        description: "Trigger all jobs"
+        default: false
+        type: boolean
+        required: true
   
 env:
   TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
@@ -44,7 +51,7 @@ jobs:
       run:
         working-directory: ./infrastructure/terraform/shared
     needs: changes
-    if: needs.changes.outputs.shared == 'true'
+    if: (needs.changes.outputs.shared == 'true') || (inputs.run_all == true)
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -69,7 +76,7 @@ jobs:
       run:
         working-directory: ./infrastructure/packer/images
     needs: changes
-    if: needs.changes.outputs.packerAmi == 'true'
+    if: (needs.changes.outputs.packerAmi == 'true') || (inputs.run_all == true)
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -100,10 +107,10 @@ jobs:
     # Arguably should if either needs jobs runs
     if: |
       always() &&
-      (needs.changes.result == 'success' || needs.changes.result == 'skipped') &&
+      ((needs.changes.result == 'success' || needs.changes.result == 'skipped') &&
       (needs.deploy-shared-infra.result == 'success' || needs.deploy-shared-infra.result == 'skipped') &&
-      (needs.packer-build-ami.result == 'success' || needs.packer-build-ami.result  == 'skipped')
-    # && (needs.changes.outputs.application == 'true')
+      (needs.packer-build-ami.result == 'success' || needs.packer-build-ami.result  == 'skipped') &&
+      (needs.changes.outputs.application == 'true')) || (inputs.run_all == true)
     steps:
       - name: Checkout
         uses: actions/checkout@v3
