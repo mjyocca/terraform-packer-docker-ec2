@@ -1,19 +1,19 @@
 resource "aws_instance" "blue" {
-  count = var.enable_blue_env ? var.blue_instance_count : 0
+  count                  = var.enable_blue_env ? var.blue_instance_count : 0
   ami                    = data.aws_ami.image.id
   instance_type          = "t2.micro"
   iam_instance_profile   = aws_iam_instance_profile.profile.name
   subnet_id              = module.vpc.public_subnets[count.index % length(module.vpc.public_subnets)]
   vpc_security_group_ids = [module.app_security_group.this_security_group_id]
   user_data = templatefile("${path.module}/user-data.sh.tftpl", {
-    region = var.region
-    PORT_1 = 80
-    PORT_2 = 8080
-    id = data.aws_caller_identity.current.account_id
-    repo = "terraform-packer-docker-project"
-    version = var.application_version
+    region     = var.region
+    PORT_1     = 80
+    PORT_2     = 8080
+    id         = data.aws_caller_identity.current.account_id
+    repo       = "terraform-packer-docker-project"
+    version    = var.application_version
     deployment = "blue"
-    count = count.index
+    count      = count.index
   })
 
   tags = {

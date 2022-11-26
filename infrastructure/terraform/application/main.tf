@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     aws = {
-      source  = "hashicorp/aws"
+      source = "hashicorp/aws"
     }
   }
 }
@@ -24,11 +24,11 @@ data "aws_caller_identity" "current" {}
 # packer built AMI
 data "aws_ami" "image" {
   most_recent = true
-  owners = ["self"]
-  filter {                            
+  owners      = ["self"]
+  filter {
     name   = "name"
     values = ["terraform-packer-docker-*"]
-  }                              
+  }
 }
 
 module "vpc" {
@@ -83,7 +83,7 @@ resource "aws_lb_listener" "app" {
   protocol          = "HTTP"
 
   default_action {
-    type             = "forward"
+    type = "forward"
     forward {
       target_group {
         arn    = aws_lb_target_group.blue_target_group.arn

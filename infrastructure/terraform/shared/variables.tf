@@ -1,5 +1,5 @@
 
 variable "region" {
   description = "The region Terraform deploys your instance"
-  default = "us-east-1"
+  default     = "us-east-1"
 }

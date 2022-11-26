@@ -59,7 +59,7 @@ variable "private_subnet_cidr_blocks" {
 }
 
 variable "application_version" {
-  type = string
+  type    = string
   default = "0.0.1"
 }
 
