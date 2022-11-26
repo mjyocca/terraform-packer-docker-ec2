@@ -4,6 +4,12 @@ terraform {
       source = "hashicorp/aws"
     }
   }
+  cloud {
+    organization = "<TFC ORGANIZATION HERE>"
+    workspaces {
+      name = "terraform-application"
+    }
+  }
 }
 
 provider "aws" {
