@@ -4,7 +4,7 @@
 
 Learning experiment leveraging Terraform to automate the infrastructure deployments & Packer to automate baking both the EC2 AMI image and Docker images. In additon pushing the docker image to ECR (AWS Elastic Container Registry) via Packer post-processor.
 
-## Setup
+## Setup (local)
 
 **Prerequisites*: 
   - Have Terraform, Packer, & Docker installed on your machine.*
@@ -62,3 +62,18 @@ terraform apply \
 ```
 
 The blue-green-deployment.sh file is setup to script toggling between blue and green deployments, can reference the `traffic_distribution` output value and determine which was previously promoted as production servers.
+
+
+## Setup (Github Actions)
+
+* Fork the repository
+* Create a free [Terraform Cloud Account](https://app.terraform.io/)
+  - Generate a TFE User Token
+  - Create two CLI powered workspaces for `terraform-shared` & `terraform-application`
+  - Update both Cloud Blocks with your own Terraform Cloud Organization name, current placeholder: `<TFC ORGANIZATION HERE>`
+* Have an AWS Account and AWS credentials handy
+* Add the following Github Actions Environment Secrets
+  - `AWS_ACCESS_KEY_ID`
+  - `AWS_SECRET_ACCESS_KEY`
+  - `AWS_ACCOUNT_ID` (AWS Account ID)
+  - `TF_API_TOKEN` (From Terraform Cloud)
